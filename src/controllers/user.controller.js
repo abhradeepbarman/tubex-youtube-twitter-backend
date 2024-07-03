@@ -27,13 +27,18 @@ exports.register = async(req, res) => {
         }
         
         // check for image, check for avatar(imp)
-        console.log(req.files);
+        // console.log(req.files);
         const avatarLocalPath = req.files?.avatar[0]?.path;
-        const coverImageLocalPath = req.files?.coverImage[0]?.path
+        // const coverImageLocalPath = req.files?.coverImage[0]?.path
+
+        let coverImageLocalPath;
+        if(req.files && Array.isArray(req.files?.coverImage) && req.files?.coverImage.length > 0) {
+            coverImageLocalPath = req.files.coverImage[0].path
+        }
 
         if(!avatarLocalPath) {
             return res.status(400).json({
-                success: false,
+                success: false, 
                 message: "Avatar is required"
             })
         }
