@@ -285,3 +285,175 @@ exports.refreshAccessToken = async(req, res) => {
         })
     }
 }
+
+// Testing PENDING 
+exports.changeCurrentPassword = async(req, res) => {
+    try {
+        const {oldPassword, newPassword} = req.body
+
+        const userId = req.user?._id;
+        const user = await User.findById(userId)
+        const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+        
+        if(!isPasswordCorrect) {
+            return res.status(400).json({
+                success: false,
+                message: "Wrong password"
+            })
+        }
+
+        user.password = newPassword
+        await user.save({validateBeforeSave: false})  // no validation
+
+        return res.status(200).json({
+            success: true,
+            message: "Password changed successfully!"
+        })
+    } 
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
+
+exports.getCurrentuser = (req, res) => {
+    const user = req.user;
+    return res.status(200).json({
+        success: true,
+        message: "Current user fetched successfully!",
+        user
+    })
+}
+
+exports.updateAccountDetails = async(req, res) => {
+    try {
+        const {fullName, email} = req.body
+
+        if(!fullName || !email) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            })
+        }
+
+        const userId = req.user?._id
+        const user = await User.findByIdAndUpdate(
+            userId,
+            {
+                $set: {
+                    fullName: fullName,
+                    email: email,
+                }
+            },
+            {new: true}
+        ).select("-password")
+
+
+        return res.status(200).json({
+            success: true,
+            message: "Account details updated successfully!",
+            user
+        })
+    } 
+    catch (error) {
+        console.log("error: ", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
+
+exports.updateUserAvatar = async(req, res) => {
+    try {
+        const userId = req.user?._id;
+        const avatarLocalPath = req.file?.path
+
+        if(!avatarLocalPath) {
+            return res.status(400).json({
+                success: false,
+                message: "Avatar file is missing"
+            })
+        }
+
+        const avatar = await uploadOnCloudinary(avatarLocalPath)
+
+        if(!avatar.url) {
+            return res.status(400).json({
+                success: false,
+                message: "Error while uploading avatar"
+            })
+        }
+
+        const user = await User.findByIdAndUpdate(
+            userId, 
+            {
+                $set: {
+                    avatar: avatar.url
+                }
+            },
+            {new: true}
+        ).select("-password -refreshToken")
+
+        return res.status(200).json({
+            success: true,
+            message: "Avatar updated successfully!",
+            user
+        })
+    } 
+    catch (error) {
+        console.log("error: ", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
+
+exports.updateUserCoverImage = async(req, res) => {
+    try {
+        const userId = req.user?._id;
+        const coverImageLocalPath = req.file?.path
+
+        if(!coverImageLocalPath) {
+            return res.status(400).json({
+                success: false,
+                message: "COver Image file is missing"
+            })
+        }
+
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+        if(!coverImage.url) {
+            return res.status(400).json({
+                success: false,
+                message: "Error while uploading cover image"
+            })
+        }
+
+        const user = await User.findByIdAndUpdate(
+            userId, 
+            {
+                $set: {
+                    coverImage: coverImage.url
+                }
+            },
+            {new: true}
+        ).select("-password -refreshToken")
+
+        return res.status(200).json({
+            success: true,
+            message: "Cover image updated successfully!",
+            user
+        })
+    } 
+    catch (error) {
+        console.log("error: ", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
