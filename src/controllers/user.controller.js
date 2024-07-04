@@ -479,7 +479,7 @@ exports.getUserChannelProfile = async(req, res) => {
             },
             {
                 $lookup: {
-                    from: "Subscription",
+                    from: "subscriptions",
                     localField: "_id",
                     foreignField: "channel",
                     as: "subscribers"
@@ -487,7 +487,7 @@ exports.getUserChannelProfile = async(req, res) => {
             },
             {
                 $lookup: {
-                    from: "Subscription",
+                    from: "subscriptions",
                     localField: "_id",
                     foreignField: "subscriber",
                     as: "subscribedTo"
@@ -538,6 +538,67 @@ exports.getUserChannelProfile = async(req, res) => {
             message: "Channel fetched successfully",
             channel: channel[0]
         })
+    } 
+    catch (error) {
+        console.log("error: ", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
+
+exports.getWatchHistory = async(req, res) => {
+    try {
+       const userId = req.user?._id 
+       
+       const user = await User.aggregate([
+        {
+            $match: {
+                _id: userId
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+       ])
+
+       return res.status(200).json({
+        success: false,
+        message: "Watch History fetched successfully!",
+        watchHistory: user[0].watchHistory
+       })
     } 
     catch (error) {
         console.log("error: ", error);
