@@ -1,6 +1,7 @@
 const express = require("express")
-const { register } = require("../controllers/user.controller.js")
+const { register, login, logout, refreshAccessToken } = require("../controllers/user.controller.js")
 const { upload } = require("../middlewares/multer.middleware.js")
+const { verifyJWT } = require("../middlewares/auth.middleware.js")
 const router = express.Router()
 
 router.post("/register", upload.fields([
@@ -13,5 +14,11 @@ router.post("/register", upload.fields([
         maxCount: 1
     }
 ]), register)
+
+router.post("/login", login)
+
+//secured routes
+router.post("/logout", verifyJWT, logout)
+router.post("/refresh-token", refreshAccessToken)
 
 module.exports = router

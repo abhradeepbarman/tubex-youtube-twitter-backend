@@ -1,5 +1,27 @@
 const User = require("../models/user.model");
 const uploadOnCloudinary = require("../utils/cloudinary");
+const jwt = require("jsonwebtoken")
+require("dotenv").config()
+
+const generateAccessAndRefreshToken = async(userId) => {
+    try {
+        const user = await User.findById(userId)
+
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
+
+        return {accessToken, refreshToken}
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
 
 exports.register = async(req, res) => {
     try {
@@ -86,6 +108,177 @@ exports.register = async(req, res) => {
         })
     } 
     catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
+
+exports.login = async(req, res) => {
+    try {
+        //take input from req.body
+        const {email, username, password} = req.body
+
+        //validation
+        if(!username && !email) {
+            return res.status(400).json({
+                success: false,
+                message: "Username or email is required!"
+            })
+        }
+
+        if(!password) {
+            return res.status(400).json({
+                success: false,
+                message: "password is required!"
+            })
+        }
+
+        // find the user in db
+        const user = await User.findOne({
+            $or: [{username}, {email}]
+        })
+
+        //if no user found -- return
+        if(!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            })
+        }
+
+        // password check
+        const isPasswordValid = await user.isPasswordCorrect(password)
+
+        //wrong password -- return
+        if(!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: "Password incorrect!"
+            })
+        }
+
+        //generate Access Token, Refresh Token
+        const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
+
+        const loggedInUser = await User.findById(user._id)
+        loggedInUser.password = undefined
+        loggedInUser.refreshToken = undefined
+        
+        //send cookies
+        //return res
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        return res
+                .status(200)
+                .cookie("access_token", accessToken, options)
+                .cookie("refresh_token", refreshToken, options)            
+                .json({
+                    success: true,
+                    message: "User logged in successfully!",
+                    user: loggedInUser,
+                    accessToken, 
+                    refreshToken
+                })
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
+
+exports.logout = async(req, res) => {
+    try {
+        const userId = req.user._id
+        
+        //make refresh token null in db
+        await User.findByIdAndUpdate(userId, 
+            {
+                $set: {
+                    refreshToken: undefined
+                },
+            },
+            {
+                new: true
+            }
+        )
+
+        //clear cookies
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        return res.status(200)
+                .clearCookie("access_token", options)
+                .clearCookie("refresh_token", options)
+                .json({
+                    success: false,
+                    message: "User Logged out!"
+                })
+    } 
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        })
+    }
+}
+
+exports.refreshAccessToken = async(req, res) => {
+    try {
+        const incomingRefreshToken = req.cookies?.refresh_token || req.body.refreshToken
+
+        if(!incomingRefreshToken) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized request"
+            })
+        }
+
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
+
+        const user = await User.findById(decodedToken?._id)
+
+        if(!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid refresh token"
+            })
+        }
+
+        if(incomingRefreshToken !== user?.refreshToken) {
+            return res.status(401).json({
+                success: false,
+                message: "Refresh token is expired or used"
+            })
+        }
+
+        const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
+
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        return res
+                .status(200)
+                .cookie("access_token", accessToken, options)
+                .cookie("refresh_token", refreshToken, options)
+                .json({
+                    success: true,
+                    message: "Access token refreshed!",
+                    accessToken,
+                    refreshToken
+                })
+
+    } catch (error) {
+        console.log("error: ", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
