@@ -1,15 +1,15 @@
 const User = require("../models/user.model");
-const uploadOnCloudinary = require("../utils/cloudinary");
+const {uploadOnCloudinary, deleteFromCloudinary} = require("../utils/cloudinary");
 const jwt = require("jsonwebtoken")
 require("dotenv").config()
 
 const generateAccessAndRefreshToken = async(userId) => {
     try {
         const user = await User.findById(userId)
-
+        
         const accessToken = user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
-
+        
         user.refreshToken = refreshToken
         await user.save({ validateBeforeSave: false })
 
@@ -48,16 +48,16 @@ exports.register = async(req, res) => {
             })
         }
         
-        // check for image, check for avatar(imp)
-        // console.log(req.files);
+        // get avatar
         const avatarLocalPath = req.files?.avatar[0]?.path;
-        // const coverImageLocalPath = req.files?.coverImage[0]?.path
 
+        // get cover image, it might or might not be present
         let coverImageLocalPath;
         if(req.files && Array.isArray(req.files?.coverImage) && req.files?.coverImage.length > 0) {
             coverImageLocalPath = req.files.coverImage[0].path
         }
 
+        //avatar is mandatory
         if(!avatarLocalPath) {
             return res.status(400).json({
                 success: false, 
@@ -67,7 +67,7 @@ exports.register = async(req, res) => {
 
         // upload them to cloudinary
         const avatar = await uploadOnCloudinary(avatarLocalPath)
-        const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath)  // if local path is empty, cloudinary will give null
 
         if(!avatar) {
             return res.status(400).json({
@@ -78,7 +78,7 @@ exports.register = async(req, res) => {
 
         // create user
         const user = await User.create({
-            username: username.toLowerCase(),
+            username: username.trim().toLowerCase(),
             email,
             fullName,
             password,
@@ -86,28 +86,26 @@ exports.register = async(req, res) => {
             coverImage: coverImage?.url || ""
         })
 
-        // check for user creation
-        const newUser = await User.findById(user._id)
-
-        if(!newUser) {
+        if(!user) {
             return res.status(500).json({
                 success: false,
-                message: "Something went wrong while registering the user"
+                message: "User not registered"
             })
         }
 
         // remove password and refresh token field from response
-        newUser.password = undefined
-        newUser.refreshToken = undefined
+        user.password = undefined
+        user.refreshToken = undefined
 
         // return response
         return res.status(200).json({
             success: true,
             message: "User registered successfully",
-            newUser
+            user
         })
     } 
     catch (error) {
+        console.log("ERROR:", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -140,7 +138,7 @@ exports.login = async(req, res) => {
             $or: [{username}, {email}]
         })
 
-        //if no user found -- return
+        //if user doesn't exist
         if(!user) {
             return res.status(404).json({
                 success: false,
@@ -163,11 +161,9 @@ exports.login = async(req, res) => {
         const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
 
         const loggedInUser = await User.findById(user._id)
-        loggedInUser.password = undefined
-        loggedInUser.refreshToken = undefined
-        
-        //send cookies
-        //return res
+                                        .select("-password -refreshToken")
+
+        //send cookies & response
         const options = {
             httpOnly: true,
             secure: true
@@ -185,6 +181,7 @@ exports.login = async(req, res) => {
                     refreshToken
                 })
     } catch (error) {
+        console.log("ERROR:", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -197,14 +194,12 @@ exports.logout = async(req, res) => {
         const userId = req.user._id
         
         //make refresh token null in db
-        await User.findByIdAndUpdate(userId, 
+        await User.findByIdAndUpdate(
+            userId, 
             {
                 $set: {
                     refreshToken: undefined
-                },
-            },
-            {
-                new: true
+                }
             }
         )
 
@@ -218,11 +213,12 @@ exports.logout = async(req, res) => {
                 .clearCookie("access_token", options)
                 .clearCookie("refresh_token", options)
                 .json({
-                    success: false,
+                    success: true,
                     message: "User Logged out!"
                 })
     } 
     catch (error) {
+        console.log("ERROR:", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -232,8 +228,10 @@ exports.logout = async(req, res) => {
 
 exports.refreshAccessToken = async(req, res) => {
     try {
-        const incomingRefreshToken = req.cookies?.refresh_token || req.body.refreshToken
+        // fetch refresh token from req
+        const incomingRefreshToken = req.cookies?.refresh_token || req.body?.refresh_token
 
+        //validation
         if(!incomingRefreshToken) {
             return res.status(401).json({
                 success: false,
@@ -241,10 +239,13 @@ exports.refreshAccessToken = async(req, res) => {
             })
         }
 
+        // fetch userId from decoded token
         const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
 
+        // find user by that id
         const user = await User.findById(decodedToken?._id)
 
+        //if user doesn't exist
         if(!user) {
             return res.status(401).json({
                 success: false,
@@ -252,6 +253,7 @@ exports.refreshAccessToken = async(req, res) => {
             })
         }
 
+        // check if both refresh tokens are matching
         if(incomingRefreshToken !== user?.refreshToken) {
             return res.status(401).json({
                 success: false,
@@ -259,8 +261,11 @@ exports.refreshAccessToken = async(req, res) => {
             })
         }
 
+        //generate new access & refresh token
         const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
 
+
+        //return response & send cookie
         const options = {
             httpOnly: true,
             secure: true
@@ -277,8 +282,9 @@ exports.refreshAccessToken = async(req, res) => {
                     refreshToken
                 })
 
-    } catch (error) {
-        console.log("error: ", error);
+    } 
+    catch (error) {
+        console.log("ERROR: ", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -286,12 +292,11 @@ exports.refreshAccessToken = async(req, res) => {
     }
 }
 
-// Testing PENDING 
 exports.changeCurrentPassword = async(req, res) => {
     try {
         const {oldPassword, newPassword} = req.body
-
         const userId = req.user?._id;
+
         const user = await User.findById(userId)
         const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
         
@@ -348,7 +353,8 @@ exports.updateAccountDetails = async(req, res) => {
                 }
             },
             {new: true}
-        ).select("-password")
+        )
+        .select("-password -refreshToken")
 
 
         return res.status(200).json({
@@ -374,39 +380,45 @@ exports.updateUserAvatar = async(req, res) => {
         if(!avatarLocalPath) {
             return res.status(400).json({
                 success: false,
-                message: "Avatar file is missing"
+                message: "Avatar file is missing!"
             })
         }
 
         const avatar = await uploadOnCloudinary(avatarLocalPath)
 
-        if(!avatar.url) {
+        if(!avatar) {
             return res.status(400).json({
                 success: false,
                 message: "Error while uploading avatar"
             })
         }
 
-        // TODO: Delete old image - assignment
+        // TODO: Delete old image from cloudinary - assignment
+        const user = await User.findById(userId)
 
-        const user = await User.findByIdAndUpdate(
-            userId, 
+        const oldUrl = user.avatar;
+        await deleteFromCloudinary(oldUrl)
+
+        // update the url
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
             {
                 $set: {
                     avatar: avatar.url
                 }
             },
             {new: true}
-        ).select("-password -refreshToken")
+        )
+        .select("-password -refreshToken")
 
         return res.status(200).json({
             success: true,
             message: "Avatar updated successfully!",
-            user
+            user: updatedUser
         })
     } 
     catch (error) {
-        console.log("error: ", error);
+        console.log("ERROR: ", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -422,20 +434,25 @@ exports.updateUserCoverImage = async(req, res) => {
         if(!coverImageLocalPath) {
             return res.status(400).json({
                 success: false,
-                message: "COver Image file is missing"
+                message: "Cover Image file is missing"
             })
         }
 
+        //upload new image to cloudinary
         const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
-        if(!coverImage.url) {
+        if(!coverImage) {
             return res.status(400).json({
                 success: false,
                 message: "Error while uploading cover image"
             })
         }
 
-        const user = await User.findByIdAndUpdate(
+        //delete old image from cloudinary
+        const user = await User.findById(userId)
+        await deleteFromCloudinary(user.coverImage)
+
+        const updatedUser = await User.findByIdAndUpdate(
             userId, 
             {
                 $set: {
@@ -443,16 +460,17 @@ exports.updateUserCoverImage = async(req, res) => {
                 }
             },
             {new: true}
-        ).select("-password -refreshToken")
+        )
+        .select("-password -refreshToken")
 
         return res.status(200).json({
             success: true,
             message: "Cover image updated successfully!",
-            user
+            user: updatedUser
         })
     } 
     catch (error) {
-        console.log("error: ", error);
+        console.log("ERROR: ", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -460,6 +478,8 @@ exports.updateUserCoverImage = async(req, res) => {
     }
 }
 
+
+// Testing PENDING 
 exports.getUserChannelProfile = async(req, res) => {
     try {
         const {username} = req.params  

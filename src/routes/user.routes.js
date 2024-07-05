@@ -15,11 +15,9 @@ router.post("/register", upload.fields([
     }
 ]), register)
 router.post("/login", login)
-
-//secured routes
 router.post("/logout", verifyJWT, logout)
 router.post("/refresh-token", refreshAccessToken)
-router.post("/change-password", verifyJWT, changeCurrentPassword)
+router.patch("/change-password", verifyJWT, changeCurrentPassword)
 router.get("/current-user", verifyJWT, getCurrentuser)
 router.patch("/update-account-details", verifyJWT, updateAccountDetails)
 

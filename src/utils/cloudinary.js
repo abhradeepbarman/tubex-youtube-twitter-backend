@@ -15,7 +15,8 @@ const uploadOnCloudinary = async (localFilePath) => {
 
         //upload the file on cloudinary
         const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto"
+            resource_type: "auto",
+            folder: "Youtube-Twitter"
         })
 
         // file has been uploaded successfully
@@ -29,4 +30,22 @@ const uploadOnCloudinary = async (localFilePath) => {
     }
 }
 
-module.exports = uploadOnCloudinary
+const deleteFromCloudinary = async (url) => {
+    try {
+        if(!url) return null
+        
+        const part = url.split("/")
+        const fileName = part[part.length -1].split(".")[0]
+        const folderName = part[part.length -2]
+        const public_id = folderName + "/" + fileName
+
+        const response = await cloudinary.uploader.destroy(public_id)
+        return response
+    } 
+    catch (error) {
+        console.log("ERROR: ", error);
+        return null;
+    }
+}
+
+module.exports = {uploadOnCloudinary, deleteFromCloudinary}
