@@ -16,10 +16,12 @@ app.use(cookieParser())
 
 //routes import
 const userRoutes = require("./routes/user.routes.js")
+const videoRoutes = require("./routes/video.routes.js")
 
 
 //routes declare
 app.use("/api/v1/users", userRoutes)
+app.use("/api/v1/videos", videoRoutes)
 
 
 module.exports = app
