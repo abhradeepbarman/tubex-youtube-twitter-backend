@@ -519,7 +519,7 @@ exports.getUserChannelProfile = async(req, res) => {
                         $size: "$subscribers"
                     },
                     channelsSubscribedToCount: {
-                        $size: "subscribedTo"
+                        $size: "$subscribedTo"
                     },
                     isSubscribed: {
                         $cond: {
@@ -560,7 +560,7 @@ exports.getUserChannelProfile = async(req, res) => {
         })
     } 
     catch (error) {
-        console.log("error: ", error);
+        console.log("ERROR: ", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -615,13 +615,13 @@ exports.getWatchHistory = async(req, res) => {
        ])
 
        return res.status(200).json({
-        success: false,
+        success: true,
         message: "Watch History fetched successfully!",
         watchHistory: user[0].watchHistory
        })
     } 
     catch (error) {
-        console.log("error: ", error);
+        console.log("ERROR: ", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"

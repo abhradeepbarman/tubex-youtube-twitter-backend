@@ -24,6 +24,7 @@ router.patch("/update-account-details", verifyJWT, updateAccountDetails)
 router.patch("/update-avatar", verifyJWT, upload.single("avatar"), updateUserAvatar)
 router.patch("/update-cover-image", verifyJWT, upload.single("coverImage"), updateUserCoverImage)
 
+// Testing PENDING 
 router.get("/channel/:username", verifyJWT, getUserChannelProfile)
 router.get("/watch-history", verifyJWT, getWatchHistory)
 
