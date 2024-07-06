@@ -1,4 +1,4 @@
-const { default: mongoose, isValidObjectId } = require("mongoose");
+const mongoose = require("mongoose");
 const Video = require("../models/video.model");
 
 const {
@@ -129,35 +129,33 @@ exports.updateVideo = async (req, res) => {
         const thumbnailLocalPath = req.file?.path;
         const { title, description } = req.body;
 
-        // validation
-        if (!thumbnailLocalPath) {
+        //validation
+        if (!thumbnailLocalPath && !title && !description) {
             return res.status(400).json({
                 success: false,
-                message: "Thumbnail is required!",
-            });
-        }
-
-        if (!title || !description) {
-            return res.status(400).json({
-                success: false,
-                message: "All fields are required!",
+                message: "Atleast one update field is required",
             });
         }
 
         // upload thumbnail to cloudinary
-        const newThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+        let newThumbnail;
+        if (thumbnailLocalPath) {
+            newThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+        }
         const oldThumbnail = video.thumbnail;
 
         // update the video
-        const updatedVideo = await Video.findByIdAndUpdate(
-            videoId,
-            {
-                thumbnail: newThumbnail.url,
-                title,
-                description,
-            },
-            { new: true }
-        );
+        if (title) {
+            video.title = title;
+        }
+        if (description) {
+            video.description = description;
+        }
+        if (thumbnailLocalPath) {
+            video.thumbnail = newThumbnail.url;
+        }
+
+        const updatedVideo = await video.save();
 
         if (!updatedVideo) {
             return res.status(500).json({
@@ -167,7 +165,9 @@ exports.updateVideo = async (req, res) => {
         }
 
         // delete old thumbnail
-        await deleteFromCloudinary(oldThumbnail);
+        if (newThumbnail) {
+            await deleteFromCloudinary(oldThumbnail);
+        }
 
         // return response
         return res.status(200).json({
@@ -243,6 +243,24 @@ exports.deleteVideo = async (req, res) => {
         }
 
         // delete video
+        const video = await Video.findById(videoId);
+
+        //validation
+        if (!video) {
+            return res.status(404).json({
+                success: false,
+                message: "Video not found",
+            });
+        }
+
+        const thumbnailUrl = video.thumbnail;
+        const videoUrl = video.videoFile;
+
+        //delete thumbnail & video from cloudinary
+        await deleteFromCloudinary(thumbnailUrl);
+        await deleteFromCloudinary(videoUrl, true);
+
+        // delete video data from DB
         const deletedVideo = await Video.findByIdAndDelete(videoId);
 
         if (!deletedVideo) {
@@ -256,6 +274,7 @@ exports.deleteVideo = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Video deleted Successfully!",
+            deletedVideo,
         });
     } catch (error) {
         console.log(error);
@@ -290,12 +309,27 @@ exports.getAllVideos = async (req, res) => {
                 $search: {
                     index: "search-videos",
                     text: {
-                        query: "subscribe",
-                        path: ["title", "description"],
+                        query: query,
+                        path: ["title", "description"], //search only on title, desc
                     },
                 },
             });
         }
+
+        if (userId) {
+            pipeline.push({
+                $match: {
+                    owner: new mongoose.Types.ObjectId(userId),
+                },
+            });
+        }
+
+        // fetch videos where isPublished is true
+        pipeline.push({
+            $match: {
+                isPublished: true,
+            },
+        });
 
         if (sortBy && sortType) {
             pipeline.push({
@@ -310,28 +344,6 @@ exports.getAllVideos = async (req, res) => {
                 },
             });
         }
-
-        if (userId) {
-            if (!isValidObjectId(userId)) {
-                return res.status(404).json({
-                    success: false,
-                    message: "User not found",
-                });
-            } else {
-                pipeline.push({
-                    $match: {
-                        owner: new mongoose.Types.ObjectId(userId),
-                    },
-                });
-            }
-        }
-
-        // fetch videos where isPublished is true
-        pipeline.push({
-            $match: {
-                isPublished: true,
-            },
-        });
 
         pipeline.push(
             {
@@ -365,21 +377,21 @@ exports.getAllVideos = async (req, res) => {
         const options = {
             page: parseInt(page, 10),
             limit: parseInt(limit, 10),
+            useFacet: false,
         };
 
-        const videos = await Video.aggregatePaginate(videoAggregate, options)
-        console.log("videos", videos);
+        const videos = await Video.aggregatePaginate(videoAggregate, options);
 
         return res.status(200).json({
             success: true,
             message: "All videos fetched successfully!",
-            videos: videos.docs,
+            videos,
         });
     } catch (error) {
-      console.log(error);
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error"
-      })
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
     }
 };
