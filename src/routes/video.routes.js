@@ -1,7 +1,7 @@
 const express = require("express")
 const { verifyJWT } = require("../middlewares/auth.middleware")
 const { upload } = require("../middlewares/multer.middleware")
-const { publishVideo } = require("../controllers/video.controller")
+const { publishVideo, getVideoById, updateVideo, deleteVideo, togglePublishStatus, getAllVideos } = require("../controllers/video.controller")
 const router = express.Router()
 
 
@@ -17,10 +17,19 @@ router.post("/publish-video", verifyJWT, upload.fields([
     }
 ]), publishVideo)
 
-// get all video
 // get video by id
-// update video (thumbnail)
-// delete video
+router.get("/:videoId", verifyJWT, getVideoById)
+
+// update video (title, description, thumbnail)
+router.patch("/update/:videoId", verifyJWT, upload.single("thumbnail"), updateVideo)
+
 // toggle publish status
+router.patch("/toggle/publish/:videoId", verifyJWT, togglePublishStatus)
+
+// delete video
+router.delete("/delete/:videoId", verifyJWT, deleteVideo)
+
+// get all video
+router.get("/", getAllVideos)
 
 module.exports = router
