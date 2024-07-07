@@ -96,25 +96,24 @@ exports.getUserTweets = async (req, res) => {
                                 ],
                             },
                         },
+                        {
+                            $addFields: {
+                                likedBy: {
+                                    $first: "$likedBy",
+                                },
+                            },
+                        },
                     ],
                 },
             },
             {
                 $addFields: {
                     likes: {
-                        $first: "$likes",
-                    },
-                },
-            },
-            {
-                $addFields: {
-                    likes: "$likes.likedBy",
-                },
-            },
-            {
-                $addFields: {
-                    likeCount: {
-                        $size: { $ifNull: ["$likes", []] },
+                        $map: {
+                            input: "$likes",
+                            as: "like",
+                            in: "$$like.likedBy",
+                        },
                     },
                 },
             },
@@ -141,18 +140,9 @@ exports.getUserTweets = async (req, res) => {
                     owner: { $arrayElemAt: ["$owner", 0] },
                 },
             },
-            {
-                $addFields: {
-                    likes: {
-                        $cond: {
-                            if: {$eq: ["$likeCount", 0]},
-                            then: [],
-                            else: "$likes"
-                        }
-                    }
-                }
-            }
         ]);
+
+        // $map iterates over the likes array, and for each element (referred to as like), it returns the likedBy object. The result will be a new array likedBy containing only the likedBy objects from the original likes array.
 
         //validation
         if (!tweets) {
@@ -261,14 +251,14 @@ exports.deleteTweet = async (req, res) => {
         const tweet = await Tweet.findById(tweetId);
 
         if (!tweet) {
-            return res.status(404).json({
+            return res.status(400).json({
                 success: false,
                 message: "Tweet not found",
             });
         }
 
         //Authorization
-        if (req.user?._id.toString() !== tweet.owner.toString()) {
+        if (req.user?._id.toString() !== tweet?.owner.toString()) {
             return res.status(400).json({
                 success: false,
                 message: "Only owner can delete this Tweet",
@@ -287,10 +277,9 @@ exports.deleteTweet = async (req, res) => {
         }
 
         //delete likes on the tweet also
-        const res = await Like.deleteMany({
+        const result = await Like.deleteMany({
             tweet: tweetId,
         });
-        console.log(res);
 
         //return response
         return res.status(200).json({
