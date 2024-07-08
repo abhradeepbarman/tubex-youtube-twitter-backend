@@ -5,6 +5,7 @@ const {
     uploadOnCloudinary,
     deleteFromCloudinary,
 } = require("../utils/cloudinary");
+const User = require("../models/user.model");
 
 exports.publishVideo = async (req, res) => {
     try {
@@ -67,6 +68,9 @@ exports.getVideoById = async (req, res) => {
         // take video id from params
         const { videoId } = req.params;
 
+        //take user id
+        const userId = req.user._id
+
         // validation
         if (!videoId) {
             return res.status(400).json({
@@ -87,6 +91,27 @@ exports.getVideoById = async (req, res) => {
                 message: "Video not found!",
             });
         }
+
+        //increase video views
+        await Video.findByIdAndUpdate(
+            videoId,
+            {
+                $inc: {
+                    views: 1
+                }
+            }
+        )
+
+        // add this video in the user watch history
+        await User.findByIdAndUpdate(
+            userId,
+            {
+                $addToSet: {
+                    watchHistory: videoId
+                }
+            },
+            {new: true}
+        )
 
         // return response
         return res.status(200).json({
