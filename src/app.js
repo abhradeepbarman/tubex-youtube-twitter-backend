@@ -23,6 +23,7 @@ const likeRoutes = require("./routes/like.routes.js")
 const subscriptionRoutes = require("./routes/subscription.routes.js")
 const commentRoutes = require("./routes/comment.routes.js")
 const playlistRoutes = require("./routes/playlist.routes.js")
+const dashboardRoutes = require("./routes/dashboard.routes.js")
 
 //routes declare
 app.use("/api/v1/healthcheck", healthCheckRoutes)
@@ -33,6 +34,6 @@ app.use("/api/v1/likes", likeRoutes)
 app.use("/api/v1/subscriptions", subscriptionRoutes)
 app.use("/api/v1/comments", commentRoutes)
 app.use("/api/v1/playlists", playlistRoutes)
-
+app.use("/api/v1/dashboard", dashboardRoutes)
 
 module.exports = app
