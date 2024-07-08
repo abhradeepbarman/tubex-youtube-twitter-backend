@@ -54,7 +54,7 @@ exports.publishVideo = async (req, res) => {
             video,
         });
     } catch (error) {
-        console.log("Error:", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error",

@@ -16,6 +16,7 @@ const generateAccessAndRefreshToken = async(userId) => {
         return {accessToken, refreshToken}
 
     } catch (error) {
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -105,7 +106,7 @@ exports.register = async(req, res) => {
         })
     } 
     catch (error) {
-        console.log("ERROR:", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -181,7 +182,7 @@ exports.login = async(req, res) => {
                     refreshToken
                 })
     } catch (error) {
-        console.log("ERROR:", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -218,7 +219,7 @@ exports.logout = async(req, res) => {
                 })
     } 
     catch (error) {
-        console.log("ERROR:", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -284,7 +285,7 @@ exports.refreshAccessToken = async(req, res) => {
 
     } 
     catch (error) {
-        console.log("ERROR: ", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -316,6 +317,7 @@ exports.changeCurrentPassword = async(req, res) => {
         })
     } 
     catch (error) {
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -364,7 +366,7 @@ exports.updateAccountDetails = async(req, res) => {
         })
     } 
     catch (error) {
-        console.log("error: ", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -418,7 +420,7 @@ exports.updateUserAvatar = async(req, res) => {
         })
     } 
     catch (error) {
-        console.log("ERROR: ", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -470,7 +472,7 @@ exports.updateUserCoverImage = async(req, res) => {
         })
     } 
     catch (error) {
-        console.log("ERROR: ", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -560,7 +562,7 @@ exports.getUserChannelProfile = async(req, res) => {
         })
     } 
     catch (error) {
-        console.log("ERROR: ", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -621,7 +623,7 @@ exports.getWatchHistory = async(req, res) => {
        })
     } 
     catch (error) {
-        console.log("ERROR: ", error);
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
