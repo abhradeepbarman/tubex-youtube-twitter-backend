@@ -21,6 +21,7 @@ const videoRoutes = require("./routes/video.routes.js")
 const tweetRoutes = require("./routes/tweet.routes.js")
 const likeRoutes = require("./routes/like.routes.js")
 const subscriptionRoutes = require("./routes/subscription.routes.js")
+const commentRoutes = require("./routes/comment.routes.js")
 
 //routes declare
 app.use("/api/v1/healthcheck", healthCheckRoutes)
@@ -28,7 +29,8 @@ app.use("/api/v1/users", userRoutes)
 app.use("/api/v1/videos", videoRoutes)
 app.use("/api/v1/tweets", tweetRoutes)
 app.use("/api/v1/likes", likeRoutes)
-app.use("/api/v1/subscription", subscriptionRoutes)
+app.use("/api/v1/subscriptions", subscriptionRoutes)
+app.use("/api/v1/comments", commentRoutes)
 
 
 module.exports = app
